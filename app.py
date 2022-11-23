@@ -1,6 +1,6 @@
 from enum import Enum
 from json import loads, dumps, JSONDecodeError
-from typing import Optional, Tuple, Set
+from typing import Optional, Tuple, Dict
 from os import environ
 
 from flask import Flask, request, Response
@@ -25,31 +25,35 @@ class Operation(Enum):
 
 WATCHES = {}
 
+DB = IndexedDBManager(environ.get('X_PATH_APP_DB', 'db-proxy.sqlite3'))
+DB_TABLE_VALUES = DB['values']
+DB_TABLE_SECRETS = DB['secrets']
+
 
 @sock.route('/instant/db/')
 def echo(ws):
-    opened_items: Set[str] = set()
-
+    opened_items: Dict[str, str] = {}
 
     def error(message: str) -> None:
         ws.send(dumps({'error': message}))
 
-
-    def send_item(item: str) -> None:
+    def send_item(item_name: str) -> None:
         try:
-            content = DB_TABLE_VALUES[item]
+            content = DB_TABLE_VALUES[item_name]
             exists = True
         except KeyError:
             content = None
             exists = False
-        ws.send(dumps({'item': item, 'content': content, 'exists': exists}))
+        ws.send(dumps({'item': item_name, 'content': content, 'exists': exists}))
 
-
-    while True:
+    while ws.connected:
+        print('loop')
         try:
-            data = loads(ws.receive())
+            data = loads(ws.receive(timeout=10))
         except JSONDecodeError:
             error('invalid JSON')
+            continue
+        except TypeError:
             continue
 
         try:
@@ -69,25 +73,42 @@ def echo(ws):
             if item not in WATCHES:
                 WATCHES[item] = set()
             WATCHES[item].add(ws)
-            opened_items.add(ws)
+            opened_items[item] = secret
             send_item(item)
             continue
+
+        if item not in opened_items:
+            error('unauthorized')
+            continue
+
         if command == 'get':
-            if item not in opened_items:
-                error('unauthorized')
-                continue
             send_item(item)
+            continue
+        elif command == 'set' or command == 'append':
+            try:
+                value = data['value']
+            except KeyError:
+                error('no value')
+                continue
+
+            perform_db_operation(
+                item,
+                Operation.WRITE if command == 'set' else Operation.APPEND,
+                opened_items[item],
+                value
+            )
+            continue
+        elif command == 'clear':
+            perform_db_operation(
+                item,
+                Operation.CLEAR,
+                opened_items[item],
+            )
             continue
 
         error('unkown command')
 
     print('connection closed')
-
-
-
-DB = IndexedDBManager(environ.get('X_PATH_APP_DB', 'db-proxy.sqlite3'))
-DB_TABLE_VALUES = DB['values']
-DB_TABLE_SECRETS = DB['secrets']
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -120,7 +141,7 @@ def db_key(item: Optional[str] = None):
 
     if item is None:
         try:
-            item = req[item]
+            item = req['item']
         except KeyError:
             return respond_plain_text('missing item'), 400
 
@@ -145,7 +166,6 @@ def db_key(item: Optional[str] = None):
     return respond_plain_text(message), status
 
 
-
 def verify_set_secret(item: str, secret: Optional[str] = None) -> bool:
     expected_secret = DB_TABLE_SECRETS.get(item)
     if expected_secret != secret:
@@ -156,14 +176,13 @@ def verify_set_secret(item: str, secret: Optional[str] = None) -> bool:
     return True
 
 
-
 def notify_watches(item: str, content: any, exists: bool = True) -> None:
     for ws in WATCHES.get(item, set()):
+        # noinspection PyBroadException
         try:
             ws.send(dumps({'item': item, 'content': content, 'exists': exists}))
         except Exception:
             pass
-
 
 
 def perform_db_operation(item: str, operation: Operation, secret: Optional[str] = None, value: Optional[any] = None) \
@@ -178,6 +197,7 @@ def perform_db_operation(item: str, operation: Operation, secret: Optional[str] 
             return 404, ''
 
         if operation == Operation.CLEAR:
+            notify_watches(item, None)
             del DB_TABLE_VALUES[item]
 
         return 200, current_value
@@ -208,3 +228,7 @@ def get_request_dict():  # type: () -> dict
 
 def respond_plain_text(s):  # type: (str) -> Response
     return Response(s, mimetype='text/plain')
+
+
+if __name__ == '__main__':
+    app.run()
