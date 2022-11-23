@@ -4,27 +4,23 @@ ENV DIR_APP /opt/app
 ENV DIR_DATA /srv/app
 
 RUN apk add git && \
-    apk add openssl
-
-RUN mkdir -p $DIR_APP && mkdir -p $DIR_DATA && \
+    apk add openssl && \
+    mkdir -p $DIR_APP && mkdir -p $DIR_DATA && \
     addgroup -Sg 991 app && adduser -Su 991 app -G app && \
     chown app $DIR_DATA
 
 WORKDIR $DIR_APP
+
 RUN openssl req -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes -out self.crt -keyout self.key -subj="/CN=http-db" && \
     chgrp app self.crt && \
     chgrp app self.key && \
     chmod 640 self.crt && \
     chmod 640 self.key
 
-RUN python -m venv venv
-
-RUN source $DIR_APP/venv/bin/activate && \
-    pip install --no-cache-dir gunicorn
+RUN pip install --no-cache-dir gunicorn
 
 ADD requirements.txt requirements.txt
-RUN source $DIR_APP/venv/bin/activate && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 ADD . $DIR_APP/
 USER app
