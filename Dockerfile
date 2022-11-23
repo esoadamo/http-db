@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.10-alpine
 
 ENV DIR_APP /opt/app
 ENV DIR_DATA /srv/app
@@ -17,11 +17,14 @@ RUN openssl req -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes -out self.crt -
     chmod 640 self.crt && \
     chmod 640 self.key
 
-RUN python3 -m venv venv
-RUN venv/bin/pip install --no-cache-dir gunicorn
+RUN python -m venv venv
+
+RUN source $DIR_APP/venv/bin/activate && \
+    pip install --no-cache-dir gunicorn
 
 ADD requirements.txt requirements.txt
-RUN venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN source $DIR_APP/venv/bin/activate && \
+    pip install --no-cache-dir -r requirements.txt
 
 ADD . $DIR_APP/
 USER app

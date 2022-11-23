@@ -1,4 +1,4 @@
-Flask
-flask-cors
-git+https://github.com/esoadamo/Python-SQLiteDB.git
-flask-sock
+Flask==2.2.2
+Flask-Cors==3.0.10
+flask-sock==0.5.2
+sqlitedb @ git+https://github.com/esoadamo/Python-SQLiteDB.git@2ade19494cf91c74e1ec43383dd5b9aaf1501a40
