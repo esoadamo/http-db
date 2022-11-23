@@ -47,7 +47,6 @@ def echo(ws):
         ws.send(dumps({'item': item_name, 'content': content, 'exists': exists}))
 
     while ws.connected:
-        print('loop')
         try:
             data = loads(ws.receive(timeout=10))
         except JSONDecodeError:
