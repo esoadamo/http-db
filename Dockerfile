@@ -22,4 +22,4 @@ USER app
 
 EXPOSE 5000
 ENTRYPOINT ["/bin/sh"]
-CMD ["-c", ". $DIR_APP/venv/bin/activate && export X_PATH_APP_DB=$DIR_DATA/database.sqlite3 && gunicorn -w 4 -b :5000 --threads 100 app:app"]
+CMD ["-c", ". $DIR_APP/venv/bin/activate && export X_PATH_APP_DB=$DIR_DATA/database.sqlite3 && gunicorn -w 1 -b :5000 --threads 100 app:app"]
