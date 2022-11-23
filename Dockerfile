@@ -3,13 +3,19 @@ FROM python:alpine
 ENV DIR_APP /opt/app
 ENV DIR_DATA /srv/app
 
-RUN apk add git
+RUN apk add git && \
+    apk add openssl
 
-RUN mkdir -p $DIR_APP && mkdir -p $DIR_DATA
-RUN addgroup -S app && adduser -S app -G app
-RUN chown app $DIR_DATA
+RUN mkdir -p $DIR_APP && mkdir -p $DIR_DATA && \
+    addgroup -Sg 991 app && adduser -Su 991 app -G app && \
+    chown app $DIR_DATA
 
 WORKDIR $DIR_APP
+RUN openssl req -newkey rsa:2048 -x509 -sha256 -days 3650 -nodes -out self.crt -keyout self.key -subj="/CN=http-db" && \
+    chgrp app self.crt && \
+    chgrp app self.key && \
+    chmod 640 self.crt && \
+    chmod 640 self.key
 
 RUN python3 -m venv venv
 RUN venv/bin/pip install --no-cache-dir gunicorn
@@ -22,4 +28,4 @@ USER app
 
 EXPOSE 5000
 ENTRYPOINT ["/bin/sh"]
-CMD ["-c", ". $DIR_APP/venv/bin/activate && export X_PATH_APP_DB=$DIR_DATA/database.sqlite3 && gunicorn -w 1 -b :5000 --threads 100 app:app"]
+CMD ["-c", ". $DIR_APP/venv/bin/activate && export X_PATH_APP_DB=$DIR_DATA/database.sqlite3 && gunicorn -w 1 -b :5000 --threads 100 --certfile=self.crt --keyfile=self.key app:app"]

@@ -28,4 +28,9 @@ elif [ "$OPERATION" == "start" ]; then
 elif [ "$OPERATION" == "delete" ]; then
     sudo docker rm -f http-db || true
     sudo docker rmi -f esoadamo/http-db || true
+elif [ "$OPERATION" == "push" ]; then
+    sudo docker push esoadamo/http-db
+elif [ "$OPERATION" == "pull" ]; then
+    sudo docker pull esoadamo/http-db
 fi
+
