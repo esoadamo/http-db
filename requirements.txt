@@ -1,0 +1,4 @@
+Flask
+flask-cors
+git+https://github.com/esoadamo/Python-SQLiteDB.git
+flask-sock
