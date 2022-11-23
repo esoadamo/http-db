@@ -216,7 +216,11 @@ def perform_db_operation(item: str, operation: Operation, secret: Optional[str] 
 def get_request_dict():  # type: () -> dict
     d = {}
     d.update(request.args)
-    d.update(request.get_data())
+    # noinspection PyBroadException
+    try:
+        d.update(request.form)
+    except Exception:
+        pass
     # noinspection PyBroadException
     try:
         d.update(request.get_json())
