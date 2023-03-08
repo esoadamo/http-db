@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from json import loads, dumps, JSONDecodeError
 from typing import Optional, Tuple, Dict
@@ -64,7 +65,10 @@ def echo(ws):
 
         data = data.get('data', {})
 
-        if command == 'open':
+        if command == 'ping':
+            ws.send(dumps({'event': 'pong', 'data': int(time.time() * 1000)}))
+            continue
+        elif command == 'open':
             secret = data.get('secret')
             if not verify_set_secret(item, secret):
                 error('unauthorized')
