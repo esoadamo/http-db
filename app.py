@@ -169,6 +169,36 @@ def db_key(item: Optional[str] = None):
     return respond_plain_text(message), status
 
 
+@app.route('/hook/<string:secret>', methods=['GET', 'POST', 'DELETE', 'PUT'])
+def hook_secret(secret: str):
+    if secret is None:
+        return respond_plain_text('missing secret'), 400
+
+    data = get_request_dict()
+    data['$timestamp'] = time.time()
+
+    operation: Operation = Operation.WRITE
+
+    if request.method == 'DELETE':
+        operation = Operation.CLEAR
+    elif request.method == 'GET':
+        operation = Operation.READ
+
+    status, message = perform_db_operation(
+        item=f"hook/{secret}",
+        operation=operation,
+        secret=None,
+        value=dumps(data)
+    )
+
+    if operation != Operation.READ and message == 'ok':
+        message = '{"status": "ok"}'
+    elif operation == Operation.READ and status == 404:
+        message = '{"$fired": false}'
+
+    return Response(message, mimetype='application/json'), status
+
+
 def verify_set_secret(item: str, secret: Optional[str] = None) -> bool:
     expected_secret = DB_TABLE_SECRETS.get(item)
     if expected_secret != secret:
